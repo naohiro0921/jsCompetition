@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link href="style.css" rel="stylesheet" type="text/css" media="all">
+    <meta charset="UTF-8">
+    <title>Carrer Shooting Game</title>
+    <h3>出世シューティングゲーム ~ポイントを溜めて出世しよう！~</h3>
+    <p>スコア目安↓↓  スクロールしてね。</p>
+    <p>Score 1~10 ⇨　平社員👨‍💻</p>
+    <p>Score 11~30 ⇨ マネージャー👨‍💼</p>
+    <p>Score 31~50 ⇨ チームリーダー🧑</p>
+    <p>Score 51~70 ⇨ 部長👨</p>
+    <p>Score 71~90 ⇨ 役員👨‍🦳</p>
+    <p>Score 91~ ⇨ 社長ご昇格！🎉</p>
+        
+    <body>
+      <canvas id="field" width="600" height="600"></canvas>
+      <img id="back" src="back.png" style="display: none">
+      <img id="enemy" src="enemy.png" style="display: none">
+      <img id="ship" src="ship.png" style="display: none">
+
+    </body>
+
+    <script>
+      "use strict";
+      
+      class Ship {
+        // 自プレイヤーについての設定
+        constructor() {
+          this.img = document.getElementById("ship");
+          this.x = 300;
+          this.y = 500;
+          this.sx = 0;
+          this.sy = 0;
+        }
+        move(mouseX, mouseY) {
+          this.sx = (mouseX - this.x) / 10; // マウスをx方向へ移動
+          this.sy = (mouseY - this.y) / 10; // マウスをy方向へ移動
+        }
+        tick() {
+          this.x += this.sx; 
+          this.y += this.sy; 
+          ctx.drawImage(this.img, this.x - 50, this.y - 50);
+        }
+        shoot() {
+          bullets.push(new Bullet(this.x, this.y, 0, -25, true)); // マウスをクリックで弾を発射
+        }
+      }
+
+      class Enemy {
+        // 敵の設定
+        constructor() {
+          this.img = document.getElementById("enemy");
+          this.x = Math.random() * 400 + 100; 
+          this.y = 0; 
+          this.sx = Math.random() * 5 - 2.5; 
+          this.sy = Math.random() * 15 + 15; 
+          this.shoot = false;
+        }
+        tick() {
+          this.sy -= 1; 
+          this.x += this.sx; 
+          this.y += this.sy; 
+          ctx.drawImage(this.img, this.x - 50, this.y - 50);
+
+          if (this.shoot == false && this.sy < 0) {
+            // 画面の上から出てきてから戻る時に弾を発射
+            let theta = Math.atan2(ship.y - this.y, ship.x - this.x);
+            let sx = Math.cos(theta) * 10;
+            let sy = Math.sin(theta) * 10;
+            bullets.push(new Bullet(this.x, this.y, sx, sy, false));
+            this.shoot = true;
+          }
+        }
+      }
+
+      class Bullet {
+        // 弾についての設定。コンストラクタを用いることで、背景の中にランダムに星を配置する。
+        constructor(x, y, sx, sy, isShip) {
+          this.x = x;
+          this.y = y;
+          this.sx = sx;
+          this.sy = sy;
+          this.isShip = isShip; 
+        }
+        tick() {
+          this.x += this.sx;
+          this.y += this.sy;
+          drawCircle(this.x, this.y, 5, this.isShip ? "blue" : "red");
+        }
+      }
+
+      class Star {
+        // 背景の星を動かす
+        constructor() {
+          this.x = Math.random() * 600; 
+          this.y = Math.random() * 600; 
+          this.r = Math.random() * 5 + 1; 
+        }
+        tick() {
+          this.y += this.r; // 上から下に動かしていくアニメーションを設定
+          if (this.y > 600) {
+            // 一番下まで移動したら、また上に戻る（ループ）設定
+            this.y -= 600;
+          }
+          drawCircle(this.x, this.y, this.r, "#888800");
+        }
+      }
+
+      function drawCircle(x, y, r, color) {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      let ctx; 
+      let ship; 
+      let back; 
+      let count = 0;  
+      let interval = 50; // 敵の出現頻度を設定
+      let timerId;  
+      let bullets = []; 
+      let enemies = []; 
+      const stars = []; 
+      let score = 0; 
+
+      onload = function () {
+        ctx = document.getElementById("field").getContext("2d");
+        ctx.font = "32px 'Times New Roman'";
+        ship = new Ship();  // 自機オブジェクト作成
+        back = document.getElementById("back");
+        window.onpointermove = (e) => {
+          ship.move(e.clientX, e.clientY);  // マウスを左右に動かして自プレイヤーを移動
+        };
+        window.onpointerdown = (e) => {
+          ship.shoot(); // マウスを押すと弾を発射
+        };
+        timerId = setInterval(tick, 50);  
+        for (let i = 0; i < 50; i++) {
+          stars.push(new Star()); 
+        }
+      };
+
+      function tick() {
+        count++;
+        ctx.fillStyle = "black";
+        ctx.fillRect(0, 0, 600, 600);
+        ctx.drawImage(back, 0, 0);
+        stars.forEach((s) => s.tick()); 
+        ship.tick();
+        if (count % interval == 0) {
+          enemies.push(new Enemy());  
+          interval = Math.max(5, interval - 5);
+        }
+        let gameOver = false;
+        enemies.forEach((e) => {
+          e.tick(); 
+          if (dist(e, ship) < 100) {
+            gameOver = true;  // 敵との距離が100未満になるとぶつかったと見做して、ゲームオーバー
+          }
+        });
+        bullets.forEach((b) => {
+          b.tick(); 
+          if (!b.isShip && dist(b, ship) < 30) {
+            gameOver = true;  // 弾丸との距離が30未満になるとぶつかったとして、ゲームオーバー
+          }
+        });
+        let prevNum = enemies.length;
+        enemies = enemies.filter((e) => {
+          return !bullets.some((b) => {
+            return b.isShip && dist(e, b) < 50; // 弾と敵の衝突判定。自分の発射した弾と敵の距離が一定以下になった時に撃墜したとみなす。
+          });
+        });
+        score += prevNum - enemies.length;
+        ctx.fillStyle = "green";
+        ctx.fillText("SCORE:" + score, 100, 100);//撃墜した敵の数をカウントしていく
+
+        if (gameOver) {
+          clearInterval(timerId);
+          ctx.fillStyle = "red";
+          ctx.fillText("GAME OVER 😭", 200, 300);//タイマーを停止してメッセージを表示
+        }
+      }
+
+      function dist(e0, e1) {
+        return Math.sqrt(
+          Math.abs(e0.x - e1.x) ** 2 + Math.abs(e0.y - e1.y) ** 2
+        );
+      }
+    </script>
+  </head>
+
+</html>
